@@ -9,7 +9,7 @@ use feature qw (switch);
 
 # Constants
 
-our $VERSION = "0.1";
+our $VERSION = "0.2";
 
 my $ERRORS =
 {
@@ -1537,6 +1537,35 @@ sub action
                my $path = $self->{action}->{path};
 
                $self->{conf}->{globalStorageOptions}->{LockDirectory} = $path;
+          }
+
+          when ("reload-urls")
+          {
+               while (my ($vhost, $url) = each %{$self->{conf}->{reloadUrls}})
+               {
+                    print "- $vhost => $url\n";
+               }
+          }
+
+          when ("reload-url-add")
+          {
+               my $vhost = $self->{action}->{vhost};
+               my $url   = $self->{action}->{url};
+
+               $self->{conf}->{reloadUrls}->{$vhost} = $url;
+          }
+
+          when ("reload-url-del")
+          {
+               my $vhost = $self->{action}->{vhost};
+
+               if (not defined ($self->{conf}->{reloadUrls}->{$vhost}))
+               {
+                    $self->setError ("$_: ".$ERRORS->{CONFIG_WRITE_ERROR}.": There is no reload URLs setted for '$vhost'");
+                    return 1;
+               }
+
+               delete $self->{conf}->{reloadUrls}->{$vhost};
           }
 
           # no implementation found

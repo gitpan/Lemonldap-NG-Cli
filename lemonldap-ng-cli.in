@@ -1,7 +1,61 @@
 #!/usr/bin/perl -w
 
 use Lemonldap::NG::Cli;
+use Config::IniFiles;
+use POSIX;
 use strict;
+
+sub giveUpPrivileges
+{
+     my ($user, $group) = @_;
+
+     if (not defined ($user))
+     {
+          $user = "nobody";
+     }
+
+     if (not defined ($group))
+     {
+          $group = "nobody";
+     }
+
+     # become $user:$group and give up root privileges
+     POSIX::setgid ((getgrnam ($group))[2]);
+     POSIX::setuid ((getpwnam ($user))[2]);
+
+     # if we are still root
+     if ($> == 0)
+     {
+          # ask the user to continue or abort
+          print STDERR "$0 must not be launchezd as root since local cache can be corrupted.\n";
+          print STDERR "Continue (y/N)? ";
+          my $res = <STDIN>;
+          exit 1 unless ($res =~ /^y/i);
+     }
+}
+
+sub loadConfig
+{
+     my ($conffile) = @_;
+
+     my $cfg = Config::IniFiles->new ( -file => $conffile );
+
+     if (defined ($cfg))
+     {
+          my $apacheuser  = $cfg->val ("apache", "user")  if $cfg->exists ("apache", "user")  or "nobody";
+          my $apachegroup = $cfg->val ("apache", "group") if $cfg->exists ("apache", "group") or "nobody";
+
+          &giveUpPrivileges ($apacheuser, $apachegroup);
+     }
+     else
+     {
+          &giveUpPrivileges ();
+     }
+}
+
+&loadConfig ("__CONFPATH__/lemonldap-cli.ini");
+
+exit (0);
 
 my $app = Lemonldap::NG::Cli->new ();
 
@@ -78,6 +132,12 @@ Global Storage:
   lemonldap-ng-cli global-storage
   lemonldap-ng-cli global-storage-set-dir <path>
   lemonldap-ng-cli global-storage-set-lockdir <path>
+
+Reload URLs:
+
+  lemonldap-ng-cli reload-urls
+  lemonldap-ng-cli reload-url-add <vhost> <url>
+  lemonldap-ng-cli reload-url-del <vhost>
 
 =head1 DESCRIPTION
 
